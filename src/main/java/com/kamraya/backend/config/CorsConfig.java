@@ -17,19 +17,14 @@ public class CorsConfig {
 
         config.setAllowCredentials(true);
 
-        config.setAllowedOrigins(List.of(
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:4200",
                 "https://kamraya-tn.onrender.com"
         ));
 
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "OPTIONS",
-                "PATCH"
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
