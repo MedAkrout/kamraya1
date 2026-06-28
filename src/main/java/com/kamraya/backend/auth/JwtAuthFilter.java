@@ -32,6 +32,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         FilterChain filterChain
     ) throws ServletException, IOException {
 
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -47,7 +52,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             if (jwtService.isTokenValid(jwt, userDetails)) {
 
-                // ← Extraire les rôles directement depuis le token
                 List<String> roles = jwtService.extractClaim(jwt, claims ->
                     claims.get("roles", List.class)
                 );
@@ -62,11 +66,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
-                        authorities  // ← rôles du token, pas de userDetails
+                        authorities
                     );
+
                 authToken.setDetails(
                     new WebAuthenticationDetailsSource().buildDetails(request)
                 );
+
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
