@@ -1,11 +1,9 @@
 package com.kamraya.backend.article;
 
+import com.kamraya.backend.mail.BrevoMailService;
 import com.kamraya.backend.user.User;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +19,7 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final ArticleStockRepository articleStockRepository;
     private final UserRepository userRepository;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String mailFrom;
-
-    // ── Routes publiques ───────────────────────────────────────────────────
+    private final BrevoMailService brevoMailService;
 
     public List<ArticleDTO> getAllArticles() {
         return articleRepository.findAll()
@@ -49,8 +42,6 @@ public class ArticleService {
         }
         return "on sale";
     }
-
-    // ── Routes ADMIN ────────────────────────────────────────────────────────
 
     @Transactional
     public ArticleDTO createArticle(Article article) {
@@ -135,50 +126,41 @@ public class ArticleService {
         return articleStockRepository.findByArticleId(articleId);
     }
 
-    // ── Mail nouveau produit (asynchrone) ────────────────────────────────────
-
     @Async
     public void sendNewProductEmail(Article article) {
-        try {
-            List<User> users = userRepository.findByRole(User.Role.USER);
-            if (users.isEmpty()) return;
+        List<User> users = userRepository.findByRole(User.Role.USER);
+        if (users.isEmpty()) return;
 
-            String[] emails = users.stream()
-                .map(User::getEmail)
-                .toArray(String[]::new);
+        String[] emails = users.stream()
+            .map(User::getEmail)
+            .toArray(String[]::new);
 
-            StringBuilder text = new StringBuilder();
-            text.append("════════════════════════════════════\n");
-            text.append("       NOUVEAU PRODUIT — KAMRAYA    \n");
-            text.append("════════════════════════════════════\n\n");
-            text.append("Bonjour,\n\n");
-            text.append("Un nouveau produit vient d'être ajouté à notre boutique !\n\n");
-            text.append("DÉTAILS DU PRODUIT\n");
-            text.append("───────────────────\n");
-            text.append("Nom         : ").append(article.getName()).append("\n");
-            text.append("Catégorie   : ").append(article.getCategory()).append("\n");
-            text.append("Prix        : ").append(article.getPrice()).append(" TND\n");
-            if (article.getDescription() != null && !article.getDescription().isEmpty()) {
-                text.append("Description : ").append(article.getDescription()).append("\n");
-            }
-            text.append("\n");
-            text.append("Découvrez-le sur notre boutique : http://localhost:4200\n\n");
-            text.append("════════════════════════════════════\n");
-            text.append("L'équipe Kamraya\n");
-
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emails);
-            message.setFrom(mailFrom);
-            message.setSubject("🆕 Nouveau produit disponible — " + article.getName() + " | Kamraya");
-            message.setText(text.toString());
-            mailSender.send(message);
-
-        } catch (Exception e) {
-            System.err.println("Erreur envoi mail nouveau produit : " + e.getMessage());
+        StringBuilder text = new StringBuilder();
+        text.append("════════════════════════════════════\n");
+        text.append("       NOUVEAU PRODUIT — KAMRAYA    \n");
+        text.append("════════════════════════════════════\n\n");
+        text.append("Bonjour,\n\n");
+        text.append("Un nouveau produit vient d'être ajouté à notre boutique !\n\n");
+        text.append("DÉTAILS DU PRODUIT\n");
+        text.append("───────────────────\n");
+        text.append("Nom         : ").append(article.getName()).append("\n");
+        text.append("Catégorie   : ").append(article.getCategory()).append("\n");
+        text.append("Prix        : ").append(article.getPrice()).append(" TND\n");
+        if (article.getDescription() != null && !article.getDescription().isEmpty()) {
+            text.append("Description : ").append(article.getDescription()).append("\n");
         }
-    }
+        text.append("\n");
+        text.append("Découvrez-le sur notre boutique : http://localhost:4200\n\n");
+        text.append("════════════════════════════════════\n");
+        text.append("L'équipe Kamraya\n");
 
-    // ── Mappers ─────────────────────────────────────────────────────────────
+        brevoMailService.send(
+            emails,
+            "🆕 Nouveau produit disponible — " + article.getName() + " | Kamraya",
+            text.toString(),
+            null
+        );
+    }
 
     private ArticleDTO toDTO(Article article) {
         boolean hasStock = article.getColors().stream().anyMatch(color ->

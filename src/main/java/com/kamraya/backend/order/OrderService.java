@@ -1,11 +1,9 @@
 package com.kamraya.backend.order;
 
 import com.kamraya.backend.article.ArticleStockRepository;
+import com.kamraya.backend.mail.BrevoMailService;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
@@ -18,14 +16,10 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ArticleStockRepository articleStockRepository;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String mailFrom;
+    private final BrevoMailService brevoMailService;
 
     @Transactional
     public OrderDTO createOrder(OrderRequest request) {
-        // Validations
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new RuntimeException("COMMANDE_VIDE");
         }
@@ -36,7 +30,6 @@ public class OrderService {
         var user = userRepository.findById(request.getUserId())
             .orElseThrow(() -> new RuntimeException("User non trouvé"));
 
-        // Vérification stock avec verrou pessimiste
         for (var i : request.getItems()) {
             var stock = articleStockRepository
                 .findByArticleIdAndColorAndSizeForUpdate(i.getArticleId(), i.getColor(), i.getSize());
@@ -66,7 +59,6 @@ public class OrderService {
         order.setItems(items);
         Order saved = orderRepository.save(order);
 
-        // Décrément stock avec verrou pessimiste
         request.getItems().forEach(i -> {
             var stock = articleStockRepository
                 .findByArticleIdAndColorAndSizeForUpdate(i.getArticleId(), i.getColor(), i.getSize());
@@ -94,47 +86,42 @@ public class OrderService {
     }
 
     private void sendOrderEmail(Order order, String userName, String userEmail, String userPhone) {
-        try {
-            LocalDateTime now = LocalDateTime.now();
-            String date = now.getDayOfMonth() + "/" + now.getMonthValue() + "/" + now.getYear();
+        LocalDateTime now = LocalDateTime.now();
+        String date = now.getDayOfMonth() + "/" + now.getMonthValue() + "/" + now.getYear();
 
-            StringBuilder text = new StringBuilder();
-            text.append("════════════════════════════════════\n");
-            text.append("       NOUVELLE COMMANDE — KAMRAYA  \n");
-            text.append("════════════════════════════════════\n\n");
+        StringBuilder text = new StringBuilder();
+        text.append("════════════════════════════════════\n");
+        text.append("       NOUVELLE COMMANDE — KAMRAYA  \n");
+        text.append("════════════════════════════════════\n\n");
 
-            text.append("INFORMATIONS CLIENT\n");
-            text.append("───────────────────\n");
-            text.append("Nom       : ").append(userName).append("\n");
-            text.append("Email     : ").append(userEmail).append("\n");
-            text.append("Téléphone : ").append(userPhone).append("\n");
-            text.append("Adresse   : ").append(order.getAddress()).append("\n");
-            text.append("Date      : ").append(date).append("\n\n");
+        text.append("INFORMATIONS CLIENT\n");
+        text.append("───────────────────\n");
+        text.append("Nom       : ").append(userName).append("\n");
+        text.append("Email     : ").append(userEmail).append("\n");
+        text.append("Téléphone : ").append(userPhone).append("\n");
+        text.append("Adresse   : ").append(order.getAddress()).append("\n");
+        text.append("Date      : ").append(date).append("\n\n");
 
-            text.append("ARTICLES COMMANDÉS\n");
-            text.append("───────────────────\n");
-            order.getItems().forEach(i -> {
-                text.append("• ").append(i.getName()).append("\n");
-                text.append("  Couleur    : ").append(colorName(i.getColor())).append("\n");
-                text.append("  Taille     : ").append(i.getSize()).append("\n");
-                text.append("  Quantité   : ").append(i.getQuantity()).append("\n");
-                text.append("  Prix unit  : ").append(i.getPrice()).append(" TND\n");
-                text.append("  Sous-total : ").append(i.getPrice() * i.getQuantity()).append(" TND\n\n");
-            });
+        text.append("ARTICLES COMMANDÉS\n");
+        text.append("───────────────────\n");
+        order.getItems().forEach(i -> {
+            text.append("• ").append(i.getName()).append("\n");
+            text.append("  Couleur    : ").append(colorName(i.getColor())).append("\n");
+            text.append("  Taille     : ").append(i.getSize()).append("\n");
+            text.append("  Quantité   : ").append(i.getQuantity()).append("\n");
+            text.append("  Prix unit  : ").append(i.getPrice()).append(" TND\n");
+            text.append("  Sous-total : ").append(i.getPrice() * i.getQuantity()).append(" TND\n\n");
+        });
 
-            text.append("───────────────────\n");
-            text.append("TOTAL : ").append(order.getTotal()).append(" TND\n");
-            text.append("════════════════════════════════════\n");
+        text.append("───────────────────\n");
+        text.append("TOTAL : ").append(order.getTotal()).append(" TND\n");
+        text.append("════════════════════════════════════\n");
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo("nouranemesfar@gmail.com");
-            message.setFrom(mailFrom);
-            message.setSubject("Nouvelle commande #" + order.getId() + " — " + userName + " — " + date);
-            message.setText(text.toString());
-            mailSender.send(message);
-        } catch (Exception e) {
-            // silencieux en production
-        }
+        brevoMailService.send(
+            "nouranemesfar@gmail.com",
+            "Nouvelle commande #" + order.getId() + " — " + userName + " — " + date,
+            text.toString()
+        );
     }
 
     public List<OrderDTO> getUserOrders(Long userId) {

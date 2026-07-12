@@ -1,11 +1,9 @@
 package com.kamraya.backend.auth;
 
+import com.kamraya.backend.mail.BrevoMailService;
 import com.kamraya.backend.user.User;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,10 +22,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final VerificationCodeRepository verificationCodeRepository;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String mailFrom;
+    private final BrevoMailService brevoMailService;
 
     @Transactional
     public void preRegister(RegisterRequest request) {
@@ -115,26 +110,17 @@ public class AuthService {
 
     private void sendVerificationEmail(String email, String fullName, String code) {
         System.out.println("=== sendVerificationEmail appelé pour: " + email);
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setFrom(mailFrom);
-            message.setSubject("Votre code de vérification — Kamraya");
-            message.setText(
-                "Bonjour " + fullName + ",\n\n" +
-                "Merci de rejoindre Kamraya !\n\n" +
-                "Votre code de vérification est :\n\n" +
-                "        " + code + "\n\n" +
-                "Ce code est valable pendant 10 minutes.\n\n" +
-                "Si vous n'avez pas demandé ce code, ignorez ce message.\n\n" +
-                "L'équipe Kamraya"
-            );
-            mailSender.send(message);
-            System.out.println("=== MAIL ENVOYÉ à " + email);
-        } catch (Exception e) {
-            System.err.println("=== MAIL ERROR: " + e.getClass().getName() + " — " + e.getMessage());
-            e.printStackTrace();
-        }
+
+        String text =
+            "Bonjour " + fullName + ",\n\n" +
+            "Merci de rejoindre Kamraya !\n\n" +
+            "Votre code de vérification est :\n\n" +
+            "        " + code + "\n\n" +
+            "Ce code est valable pendant 10 minutes.\n\n" +
+            "Si vous n'avez pas demandé ce code, ignorez ce message.\n\n" +
+            "L'équipe Kamraya";
+
+        brevoMailService.send(email, "Votre code de vérification — Kamraya", text);
     }
 
     public AuthResponse login(LoginRequest request) {
