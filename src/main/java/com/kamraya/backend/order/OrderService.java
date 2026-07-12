@@ -3,6 +3,7 @@ package com.kamraya.backend.order;
 import com.kamraya.backend.article.ArticleStockRepository;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,9 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ArticleStockRepository articleStockRepository;
     private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String mailFrom;
 
     @Transactional
     public OrderDTO createOrder(OrderRequest request) {
@@ -124,7 +128,7 @@ public class OrderService {
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo("nouranemesfar@gmail.com");
-            message.setFrom("nouranemesfar@gmail.com");
+            message.setFrom(mailFrom);
             message.setSubject("Nouvelle commande #" + order.getId() + " — " + userName + " — " + date);
             message.setText(text.toString());
             mailSender.send(message);

@@ -3,6 +3,7 @@ package com.kamraya.backend.article;
 import com.kamraya.backend.user.User;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
@@ -21,6 +22,9 @@ public class ArticleService {
     private final ArticleStockRepository articleStockRepository;
     private final UserRepository userRepository;
     private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String mailFrom;
 
     // ── Routes publiques ───────────────────────────────────────────────────
 
@@ -164,7 +168,7 @@ public class ArticleService {
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(emails);
-            message.setFrom("nouranemesfar@gmail.com");
+            message.setFrom(mailFrom);
             message.setSubject("🆕 Nouveau produit disponible — " + article.getName() + " | Kamraya");
             message.setText(text.toString());
             mailSender.send(message);

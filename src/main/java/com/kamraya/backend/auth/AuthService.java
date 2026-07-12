@@ -3,6 +3,7 @@ package com.kamraya.backend.auth;
 import com.kamraya.backend.user.User;
 import com.kamraya.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -24,6 +25,9 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final VerificationCodeRepository verificationCodeRepository;
     private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String mailFrom;
 
     @Transactional
     public void preRegister(RegisterRequest request) {
@@ -114,7 +118,7 @@ public class AuthService {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(email);
-            message.setFrom("nouranemesfar@gmail.com");
+            message.setFrom(mailFrom);
             message.setSubject("Votre code de vérification — Kamraya");
             message.setText(
                 "Bonjour " + fullName + ",\n\n" +
